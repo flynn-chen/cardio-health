@@ -1,0 +1,208 @@
+---
+title: 'S&DS 230 Final Project: Cardiovascular Disease'
+output:
+  html_document:
+    df_print: paged
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+    theme: united
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(reshape2)
+library(ggplot2)
+library(ggfortify)
+library("vcd")
+```
+
+
+## Introduction
+
+Cardiovascular disease is the leading cause of death in the United States. One person dies every 36 seconds in the United Statates from cardiovascular disease (https://www.cdc.gov/heartdisease/). In order to study what contributes to disease progression, analyzing risk factors in our daily life could provide important sights on the diagnosis and prognosis. The following analysis will shed light on cardiovascular risk factors and potentially guide us to a healthier way to lead out lives. 
+
+
+## Data Source
+
+The following analysis is performed on a dataset with various cardiovascular disease risk factors and patient outcomes from:
+https://www.kaggle.com/sulianova/cardiovascular-disease-dataset
+
+```{r load_data}
+heart_data <- read.csv("cardio_train.csv", sep=";")
+```
+
+## Data Exploration
+
+Initially, we want to understand the dimensions of the data and what information is encoded in the categories. 
+
+### Data Dimension
+
+The dimension of the data is:
+
+```{r explore_data1}
+dim(heart_data)
+```
+
+We can see that there is a total of 70,000 entries of patient outcome.
+According to the explanation on the dataset, the variables are encoded in the following way:
+
+1. Age | Objective Feature | age | int (days)
+2. Height | Objective Feature | height | int (cm) |
+3. Weight | Objective Feature | weight | float (kg) |
+4. Gender | Objective Feature | gender | categorical code |
+5. Systolic blood pressure | Examination Feature | ap_hi | int |
+6. Diastolic blood pressure | Examination Feature | ap_lo | int |
+7. Cholesterol | Examination Feature | cholesterol | 1: normal, 2: above normal, 3: well above normal |
+8. Glucose | Examination Feature | gluc | 1: normal, 2: above normal, 3: well above normal |
+9. Smoking | Subjective Feature | smoke | binary |
+10. Alcohol intake | Subjective Feature | alco | binary |
+11. Physical activity | Subjective Feature | active | binary |
+12. Presence or absence of cardiovascular disease | Target Variable | cardio | binary |
+
+### Data Variables
+
+The variables in our dataset are:
+
+```{r explore_data2}
+glimpse(heart_data)
+```
+
+
+## Data Preprocessing
+
+### Summary
+
+A summary of the data and removing the ID's
+```{r summary}
+summary(heart_data)
+heart_data$id <- NULL
+```
+
+### Outliers 
+
+Find potential outliers
+```{r outliers}
+stacked_heart_data <- stack(heart_data)
+ggplot(stacked_heart_data, aes(x = ind, y = values)) +
+  geom_boxplot() + 
+  facet_wrap(~ind , scales = "free")
+```
+
+There are outliers in height, weight, ap_hi, and ap_lo. 
+
+```{r filter_outlier}
+height_outlier_idx <- which(heart_data$height %in% boxplot(heart_data$height)$out)
+heart_data <- heart_data[-height_outlier_idx, ]
+
+weight_outlier_idx <- which(heart_data$weight %in% boxplot(heart_data$weight)$out)
+heart_data <- heart_data[-weight_outlier_idx, ]
+
+ap_hi_outlier_idx <- which(heart_data$ap_hi %in% boxplot(heart_data$ap_hi)$out)
+heart_data <- heart_data[-ap_hi_outlier_idx, ]
+
+ap_lo_outlier_idx <- which(heart_data$ap_lo %in% boxplot(heart_data$ap_lo)$out)
+heart_data <- heart_data[-ap_lo_outlier_idx, ]
+
+nrow(heart_data)
+```
+
+After filtering out outliers in those four categories, there are still 62,505 entries left.
+
+### Duplicates 
+
+Find duplicate entries
+```{r duplicates}
+print(duplicated(heart_data$id))
+```
+There are no duplicate values.
+
+
+## Data Analysis
+
+### Overall Correlation 
+
+```{r analysis2}
+cormat <- round(cor(heart_data), 3)
+melted_cormat <- melt(cormat)
+ggplot(data = melted_cormat, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile() +
+  ggtitle("Correlation Between Variables") +
+  xlab("Variables") + 
+  ylab("Variables") +
+  theme(axis.text=element_text(size=7))
+```
+
+
+
+### Logistic Regression
+
+Based on variables with high correlation shown from the overall correlation heatmap, we can tell that glucose level, cholesterol, diastolic and systolic blood pressure, weight, and age correlate with cardiovascular disease. Hence, we construct a logistic regression model to predict the disease outcome. 
+
+```{r logistic}
+logit_model <- glm(cardio ~ gluc + cholesterol + ap_lo + ap_hi + weight + age, data = heart_data)
+summary(logit_model)
+```
+
+The odds ratio and the 95% confidence interval for each variable is
+```{r}
+exp(cbind(odds_ratio = coef(logit_model), confint(logit_model)))
+```
+
+We could see that a high cholesterols level meant higher odds of getting cardiovascular disease. 
+
+### PCA
+
+We can also perform PCA to see if the variables have a linear relationship and are separable based on disease-status.
+
+```{r}
+heart_data.pca <- prcomp(heart_data[,-12], center = TRUE, scale. = TRUE)
+autoplot(heart_data.pca, data=heart_data, colour="cardio")
+```
+
+We can see that disease status could be separated based on the variables in the first principle component. 
+
+### Gender Disparities 
+
+Let's investigate if there are any gender disparities for cardiovascular disease!
+
+```{r gender_differences}
+gender_table <- table(gender=heart_data$gender, CAD=heart_data$cardio)
+colnames(gender_table) <- c("Have", "Don't Have")
+rownames(gender_table) <- c("Male", "Female")
+mosaic(gender_table, shade=TRUE, legend=TRUE)
+```
+
+There are no statistically signifcant relationship between gender and cardiovascular disease.
+
+
+### ANOVA 
+
+Lastly, we will perform ANOVA on all of the variables to see if there is a statistically significant relationship between these factors and cardiovascular disease.
+
+```{r anova}
+summary(aov(cardio ~ age, data = heart_data))
+summary(aov(cardio ~ gender, data = heart_data))
+summary(aov(cardio ~ height, data = heart_data))
+summary(aov(cardio ~ weight, data = heart_data))
+summary(aov(cardio ~ ap_hi, data = heart_data))
+summary(aov(cardio ~ ap_lo, data = heart_data))
+summary(aov(cardio ~ cholesterol, data = heart_data))
+summary(aov(cardio ~ gluc, data = heart_data))
+summary(aov(cardio ~ smoke, data = heart_data))
+summary(aov(cardio ~ alco, data = heart_data))
+summary(aov(cardio ~ active, data = heart_data))
+```
+
+We can see that there is a significant relationship for all variables except gender. 
+
+
+## Conclusion
+
+Through analyzing this dataset, we have investigated the risk factors for cardiovascular disease. By recognizing these risk factors, we can use the knowledge to guide us in living a healthier life. 
+
+
+
+
