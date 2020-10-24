@@ -22,7 +22,7 @@ library("vcd")
 
 ## Introduction
 
-Cardiovascular disease is the leading cause of death in the United States. One person dies every 36 seconds in the United Statates from cardiovascular disease (https://www.cdc.gov/heartdisease/). In order to study what contributes to disease progression, analyzing risk factors in our daily life could provide important sights on the diagnosis and prognosis. The following analysis will shed light on cardiovascular risk factors and potentially guide us to a healthier way to lead out lives. 
+Cardiovascular disease is the leading cause of death in the United States. One person dies every 36 seconds in the United Statates from cardiovascular disease (https://www.cdc.gov/heartdisease/). In order to study what contributes to disease progression, analyzing risk factors in our daily life could provide important sights on the diagnosis and prognosis. The following analysis will shed light on cardiovascular risk factors and potentially guide us to a healthier way to lead our lives. 
 
 
 ## Data Source
